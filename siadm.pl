@@ -44,9 +44,9 @@ sub Usage {
     print <<"EOF";
 
 Usage:
-    $script_name [-h] [-tvql] -s <tty>
+    $script_name [-h] [-tvql] -s <tty> command [params]
 
-Reading from SI main station
+Setup of SI stations
 
 Parameters:
     -h  ... help
@@ -55,6 +55,19 @@ Parameters:
     -q  ... quiet - less information
     -l  ... communicate to local (master) SI station
     -s <tty>   ... serial port to read from [autodetected]
+
+Commands:
+	off    ... turn off
+	beep   ... make beep
+	rtime  ... read time
+	wtime  ... write time (localtime of computer)
+	rprot  ... read protocol info
+	wprot <ep>,<as> ... write protocol info
+		ep ... extended protocol [0/1]
+		as ... autosend [0/1]
+	rcn    ... read control mode and number
+	wcn <mode>,<number> ... write control mode and number
+		modes ... [Control, Start, Finish, Readout, Clear, Check]
 
 EOF
     exit 1;
@@ -209,8 +222,8 @@ while(my $command = shift(@commands)){
 
     if($command eq 'wcn'){
         my $mode_n = 0;
-        my $mode = shift(@commands);
-        my $cn = shift(@commands);
+        my $p = shift(@commands);
+        my ($mode, $cn) = split(',', $p);
         ERR:{
             PARM: {
                 last unless defined($mode);
@@ -231,7 +244,7 @@ while(my $command = shift(@commands)){
                 if(si_handshake(\@cmd, \@data)){
                     beep(1);
                 }else{
-                    print "Cannot set protocol conf.\n";
+                    print "Cannot set station.\n";
                 }
                 last ERR;
             }
