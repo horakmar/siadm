@@ -60,18 +60,18 @@ Parameters:
     -s <tty>   ... serial port to read from [autodetected]
 
 Commands:
-	off    ... turn off
-	beep   ... make beep
-	rtime  ... read time
-	wtime  ... write time (localtime of computer)
-	rprot  ... read protocol info
-	wprot <ep>,<as> ... write protocol info
-		ep ... extended protocol [0/1]
-		as ... autosend [0/1]
-	rcn    ... read control mode and number
-	wcn <mode>,<number> ... write control mode and number
-		modes ... [Control, Start, Finish, Readout, Clear, Check]
-	batst  ... battery status (capacity left in %)
+    off    ... turn off
+    beep   ... make beep
+    rtime  ... read time
+    wtime  ... write time (localtime of computer)
+    rprot  ... read protocol info
+    wprot <ep>,<as> ... write protocol info
+        ep ... extended protocol [0/1]
+        as ... autosend [0/1]
+    rcn    ... read control mode and number
+    wcn <mode>,<number> ... write control mode and number
+        modes ... [Control, Start, Finish, Readout, Clear, Check]
+    batst  ... battery status (capacity left in %)
 
 EOF
     exit 1;
@@ -117,67 +117,67 @@ sub readcn(){
 
 sub readbatstate(){
     my @data;
-	my $result = 0;
-	READ: {
-		my @command = (0x83,0x02,0x34,0x04);
-    	last READ unless(si_handshake(\@command, \@data));
-		last READ if($data[5] == 0xFF);
-		my $consumed = (($data[5] << 24) + ($data[6] << 16) + ($data[7] << 8) + $data[8]) / 3600;
-		print ">>> Consumed: $consumed mAh\n" if($verbose > 2);
-		@command = (0x83,0x02,0x18,0x04);
-    	last READ unless(si_handshake(\@command, \@data));
-		my $capacity = (($data[5] << 24) + ($data[6] << 16) + ($data[7] << 8) + $data[8]) / 3600;
-		print ">>> Capacity: $capacity mAh\n" if($verbose > 2);
-		$result = int(100 * (1 - $consumed/$capacity));
+    my $result = 0;
+    READ: {
+        my @command = (0x83,0x02,0x34,0x04);
+        last READ unless(si_handshake(\@command, \@data));
+        last READ if($data[5] == 0xFF);
+        my $consumed = (($data[5] << 24) + ($data[6] << 16) + ($data[7] << 8) + $data[8]) / 3600;
+        print ">>> Consumed: $consumed mAh\n" if($verbose > 2);
+        @command = (0x83,0x02,0x18,0x04);
+        last READ unless(si_handshake(\@command, \@data));
+        my $capacity = (($data[5] << 24) + ($data[6] << 16) + ($data[7] << 8) + $data[8]) / 3600;
+        print ">>> Capacity: $capacity mAh\n" if($verbose > 2);
+        $result = int(100 * (1 - $consumed/$capacity));
     }
-	return $result;
+    return $result;
 }
 
 sub readbatvoltage(){
     my @data;
-	my $result = 0;
-	READ: {
-		my @command = (0x83,0x02,0x50,0x02);
-    	last READ unless(si_handshake(\@command, \@data));
-		my $voltage = ($data[5] << 8) + $data[6];
-		print ">>> Voltage value: $voltage\n" if($verbose > 2);
-		$voltage /= 131 if($voltage > 13100);
-		$result = $voltage / 100;
-	}
-	return $result;
+    my $result = 0;
+    READ: {
+        my @command = (0x83,0x02,0x50,0x02);
+        last READ unless(si_handshake(\@command, \@data));
+        my $voltage = ($data[5] << 8) + $data[6];
+        print ">>> Voltage value: $voltage\n" if($verbose > 2);
+        $voltage /= 131 if($voltage > 13100);
+        $result = $voltage / 100;
+    }
+    return $result;
 }
 
 sub readbattemp(){
     my @data;
-	my $result = 0;
-	READ: {
-		my @command = (0x83,0x02,0x52,0x02);
-		last READ unless(si_handshake(\@command, \@data));
-		my $temper = ($data[5] << 8) + $data[6];
-		print ">>> Temperature value: $temper\n" if($verbose > 2);
-		if($temper >= 25800) {
-			$result = ($temper - 25800) / 92;
-		}else{
-			$result = $temper / 10;
-		}
-	}
-	return $result;
+    my $result = 0;
+    READ: {
+        my @command = (0x83,0x02,0x52,0x02);
+        last READ unless(si_handshake(\@command, \@data));
+        my $temper = ($data[5] << 8) + $data[6];
+        print ">>> Temperature value: $temper\n" if($verbose > 2);
+        if($temper >= 25800) {
+            $result = ($temper - 25800) / 92;
+        }else{
+            $result = $temper / 10;
+        }
+    }
+    return $result;
 }
 
 sub readbatdate(){
     my @data;
-	my $result = '';
-	READ: {
-		my @command = (0x83,0x02,0x15,0x03);
-		last READ unless(si_handshake(\@command, \@data));
-		if($data[5] < 80){
-			$data[5] += 2000;
-		}else{
-			$data[5] += 1900;
-		}
-		$result = "$data[7].$data[6].$data[5]";
-	}
-	return $result;
+    my $result = '';
+    READ: {
+        my @command = (0x83,0x02,0x15,0x03);
+        last READ unless(si_handshake(\@command, \@data));
+        if($data[5] < 80){
+            $data[5] += 2000;
+        }else{
+            $data[5] += 1900;
+        }
+        $result = "$data[7].$data[6].$data[5]";
+    }
+    return $result;
 }
 
 sub beep($){
@@ -229,20 +229,20 @@ if($local == 0){
 while(my $command = shift(@commands)){
     my @data = ();
     if($command eq 'batst'){
-		my $batst = readbatstate();
-		if($batst == 0){
-			print "Battery status not available.\n";
-		}else{
-			print "Battery status: $batst %\n";
-		}
-		my $batvoltage = readbatvoltage();
-		printf("Battery voltage: %.2f V\n", $batvoltage);
-		my $battemp = readbattemp();
-		printf("Battery temperature: %.2f °C\n", $battemp);
-		my $batdate = readbatdate();
-		print "Battery date: $batdate\n";
-		next;
-	}
+        my $batst = readbatstate();
+        if($batst == 0){
+            print "Battery status not available.\n";
+        }else{
+            print "Battery status: $batst %\n";
+        }
+        my $batvoltage = readbatvoltage();
+        printf("Battery voltage: %.2f V\n", $batvoltage);
+        my $battemp = readbattemp();
+        printf("Battery temperature: %.2f °C\n", $battemp);
+        my $batdate = readbatdate();
+        print "Battery date: $batdate\n";
+        next;
+    }
     if($command eq 'off'){
         print "Cannot turn off.\n" unless turnoff();
         next;
