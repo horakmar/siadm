@@ -4,8 +4,8 @@
 # SI control administration
 #
 # Author:   Martin Horak
-# Version:  1.0
-# Date:     23. 4. 2012
+# Version:  1.1
+# Date:     23. 9. 2018
 #
 ###########################################
 
@@ -72,6 +72,7 @@ Commands:
     wcn <mode>,<number> ... write control mode and number
         modes ... [Control, Start, Finish, Readout, Clear, Check]
     batst  ... battery status (capacity left in %)
+    fwvers ... firmware version
 
 EOF
     exit 1;
@@ -110,6 +111,16 @@ sub readcn(){
     my @command = (0x83,0x02,0x71,0x02);
     if(si_handshake(\@command, \@data)){
         return($station_modes[$data[5]], $data[6]);
+    }else{
+        return 0;
+    }
+}
+
+sub readfwversion(){
+    my @data;
+    my @command = (0x83,0x02,0x05,0x03);
+    if(si_handshake(\@command, \@data)){
+        return(chr($data[5]) . chr($data[6]) . chr($data[7]));
     }else{
         return 0;
     }
@@ -245,6 +256,15 @@ while(my $command = shift(@commands)){
     }
     if($command eq 'off'){
         print "Cannot turn off.\n" unless turnoff();
+        next;
+    }
+    if($command eq 'fwvers'){
+        my $fwversion = readfwversion();
+        if($fwversion == 0){
+            print "Firmware version cannot be read.\n";
+        }else{
+            print "Firmware version: $fwversion\n";
+        }
         next;
     }
     if($command eq 'rprot'){
