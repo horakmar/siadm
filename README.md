@@ -1,6 +1,7 @@
 # SPORTident Admin
 
-This is simple CLI software for administering of SPORTident (SI) stations.
+This is simple CLI software for administering of SPORTident (SI) stations.  
+Written in Perl. Plan to rewrite it in Python.
 
 ## Features
 ### SI stations reading and writing: 
