@@ -28,7 +28,7 @@ use constant DLE => 0x10;
 
 use constant MAX_TRIES => 5;
 
-our @EXPORT_OK = qw(si_portdetect si_error si_dumpdata si_debug si_init si_read si_write si_parse_data si_timeout si_mktime si_handshake si_num_type si_settime);
+our @EXPORT_OK = qw(si_portdetect si_error si_dumpdata si_debug si_init si_read si_write si_parse_data si_timeout si_mktime si_handshake si_num_type si_settime si_crc);
 our @EXPORT = qw(ACK NAK);
 
 our $si_error_str = '';
