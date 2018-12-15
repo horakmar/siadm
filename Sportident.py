@@ -17,6 +17,9 @@ ACK = 0x06;
 NAK = 0x15;
 DLE = 0x10;
 
+SI_VENDOR_ID = '10c4'
+SI_PRODUCT_ID = '800a'
+
 import os
 
 ##################################
@@ -74,8 +77,6 @@ def crc(data):
 #--------------------------------#
 def station_detect():
     """Detect device of connected SI master station"""
-    SI_VENDOR_ID = '10c4'
-    SI_PRODUCT_ID = '800a'
     devices = []
 
     for root, dirs, files in os.walk('/sys/devices'):
@@ -89,3 +90,18 @@ def station_detect():
                 if vendor == SI_VENDOR_ID and product == SI_PRODUCT_ID:
                     devices.append(os.path.basename(root))
     return devices
+
+#--------------------------------#
+def ttysetup(port, baud=38400, timeout=20):
+    tty = serial.Serial(port, baud, timeout=timeout)
+    return tty
+
+#--------------------------------#
+def frame(command, data):
+    """Add framing to output data"""
+    length = len(data)
+    data[:0] = length
+    data[:0] = command
+    crcsum = crc(data);
+    outdata = [WAKE, STX, data, crcsum >> 8, crcsum & 0xff, ETX]
+    return bytearray(outdata)
