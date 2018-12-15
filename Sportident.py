@@ -17,11 +17,15 @@ ACK = 0x06;
 NAK = 0x15;
 DLE = 0x10;
 
+import os
+
 ##################################
 # SI lowlevel functions
 ##################################
-# CRC computation
-def si_crc_l(length, data):
+
+#--------------------------------#
+def crc_l(length, data):
+    """CRC computation."""
     Polynom = 0x8005;
     Bitmask = 0x8000;
     Intmask = 0xFFFF;
@@ -61,6 +65,27 @@ def si_crc_l(length, data):
         i -= 1
     return sum0
 
-def si_crc(data):
+#--------------------------------#
+def crc(data):
+    """CRC computation of all data (length calculated)."""
     length = len(data)
     return si_crc_l(length, data)
+
+#--------------------------------#
+def station_detect():
+    """Detect device of connected SI master station"""
+    SI_VENDOR_ID = '10c4'
+    SI_PRODUCT_ID = '800a'
+    devices = []
+
+    for root, dirs, files in os.walk('/sys/devices'):
+        if os.path.basename(root).startswith('ttyUSB'):
+            idroot = os.path.dirname(os.path.dirname(root))   # Two levels up
+            if os.path.isfile(idroot+"/idVendor") and os.path.isfile(idroot+"/idProduct"):
+                with open(idroot+"/idVendor") as f:
+                    vendor = f.read().replace('\n', '')
+                with open(idroot+"/idProduct") as f:
+                    product = f.read().replace('\n', '')
+                if vendor == SI_VENDOR_ID and product == SI_PRODUCT_ID:
+                    devices.append(os.path.basename(root))
+    return devices
