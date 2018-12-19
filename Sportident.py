@@ -20,7 +20,19 @@ DLE = 0x10;
 SI_VENDOR_ID = '10c4'
 SI_PRODUCT_ID = '800a'
 
-import os
+import os, logging
+
+##################################
+# Custom exceptions
+##################################
+class DataCrcError(Exception):
+    pass
+
+class DataReadError(Exception):
+    pass
+
+class HandshakeMaxTries(Exception):
+    pass
 
 ##################################
 # SI lowlevel functions
@@ -76,7 +88,7 @@ def crc(data):
 
 #--------------------------------#
 def station_detect():
-    """Detect device of connected SI master station"""
+    """Detect device of connected SI master station."""
     devices = []
 
     for root, dirs, files in os.walk('/sys/devices'):
@@ -98,10 +110,70 @@ def ttysetup(port, baud=38400, timeout=20):
 
 #--------------------------------#
 def frame(command, data):
-    """Add framing to output data"""
+    """Add framing to output data."""
     length = len(data)
-    data[:0] = length
-    data[:0] = command
+    data[:0] = (command, length)
     crcsum = crc(data);
-    outdata = [WAKE, STX, data, crcsum >> 8, crcsum & 0xff, ETX]
-    return bytearray(outdata)
+    data[:0] = (WAKE, STX)
+    data.extend((crcsum >> 8, crcsum & 0xff, ETX))
+    return bytearray(data)
+
+#--------------------------------#
+def unframe(data):
+    """Strip framing from input data."""
+    i = 0
+    while data[i] != STX:
+        if data[i] == NAK: return NAK, ()
+        if data[i] == ACK: return ACK, ()
+        i += 1
+        if i >= len(data): raise DataReadError()
+    i += 1
+    command = data[i]
+    i += 1
+    length = data[i]
+    i += 1
+    data_crc = data[i+length] << 8 + data[i+length+1]
+    comp_crc = crc_l(length, data[i:])
+    if(data_crc != comp_crc): raise DataCrcError()
+    return command, list(data[i+2:])
+
+#--------------------------------#
+def siread(tty):
+    """Read data from SI station."""
+    data = tty.read(SI_CHUNK)
+    if data: logging.debug("<i<<< " + ':'.join('{:02x}'.format(x) for x in data)
+    return data
+
+#--------------------------------#
+def siwrite(tty, command, data=[]):
+    """Write data to SI station."""
+    fdata = frame(command, data)
+    tty.write(fdata)
+    logging.debug(">o>>> " + ':'.join('{:02x}'.format(x) for x in fdata)
+    return
+
+#--------------------------------#
+def handshake(tty, tries, command, data=[]):
+    """Try write - read cycle tries times."""
+    while tries > 0:
+        siwrite(tty, command, data)
+        data = siread(tty)
+        if data:
+            status, udata = unframe(data)
+            if status != NAK: return udata
+        tries -= 1
+        time.sleep(1)
+    raise HandshakeMaxTries()    
+
+def siinit(device):
+    """Initialize serial communication with SI master station."""
+    bauds = (38400, 4800)
+    for baudrate in bauds:
+        tty = serial.Serial(device, baudrate, timeout=2)
+        try:
+            handshake(tty, 1, 0xf0, 0x4d)
+        except HandshakeMaxTries:
+            tty.close()
+        else:
+            break
+
