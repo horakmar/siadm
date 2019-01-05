@@ -17,21 +17,22 @@ ACK = 0x06;
 NAK = 0x15;
 DLE = 0x10;
 
+# Status constants
+DATAOK = 0x20;
+NODATA = 0x21;
+BADCRC = 0x22;
+BADATA = 0x23;
+
 SI_VENDOR_ID = '10c4'
 SI_PRODUCT_ID = '800a'
+SI_CHUNK = 256
 
-import os, logging
+import os, logging, serial, time
 
 ##################################
 # Custom exceptions
 ##################################
-class DataCrcError(Exception):
-    pass
-
-class DataReadError(Exception):
-    pass
-
-class HandshakeMaxTries(Exception):
+class SiException(Exception):
     pass
 
 ##################################
@@ -84,7 +85,7 @@ def crc_l(length, data):
 def crc(data):
     """CRC computation of all data (length calculated)."""
     length = len(data)
-    return si_crc_l(length, data)
+    return crc_l(length, data)
 
 #--------------------------------#
 def station_detect():
@@ -104,11 +105,6 @@ def station_detect():
     return devices
 
 #--------------------------------#
-def ttysetup(port, baud=38400, timeout=20):
-    tty = serial.Serial(port, baud, timeout=timeout)
-    return tty
-
-#--------------------------------#
 def frame(command, data):
     """Add framing to output data."""
     length = len(data)
@@ -116,64 +112,87 @@ def frame(command, data):
     crcsum = crc(data);
     data[:0] = (WAKE, STX)
     data.extend((crcsum >> 8, crcsum & 0xff, ETX))
-    return bytearray(data)
+    return data
 
 #--------------------------------#
 def unframe(data):
     """Strip framing from input data."""
-    i = 0
-    while data[i] != STX:
-        if data[i] == NAK: return NAK, ()
-        if data[i] == ACK: return ACK, ()
-        i += 1
-        if i >= len(data): raise DataReadError()
-    i += 1
-    command = data[i]
-    i += 1
-    length = data[i]
-    i += 1
-    data_crc = data[i+length] << 8 + data[i+length+1]
-    comp_crc = crc_l(length, data[i:])
-    if(data_crc != comp_crc): raise DataCrcError()
-    return command, list(data[i+2:])
+    d = data.pop(0)
+    while len(data) > 0:
+        if d == STX: break
+        elif d == NAK: return NAK, ()
+        elif d == ACK: return ACK, ()
+        d = data.pop(0)
+    else:
+        return NODATA, ()
+    return DATAOK, data
+
+def checkcrc(data):
+    """Check CRC of received data."""
+    length = data[1]
+    data_crc = (data[length+2] << 8) + data[length+3]
+    comp_crc = crc_l(length+2, data)
+    if data_crc == comp_crc:
+        return True
+    else:
+        logging.warning("Bad CRC. Received: {}, Computed: {}".format(data_crc, comp_crc))
+        return False
 
 #--------------------------------#
 def siread(tty):
     """Read data from SI station."""
-    data = tty.read(SI_CHUNK)
-    if data: logging.debug("<i<<< " + ':'.join('{:02x}'.format(x) for x in data)
-    return data
+    rdata = tty.read(SI_CHUNK)
+    if rdata:
+        logging.debug("<i<<< " + ':'.join('{:02x}'.format(x) for x in rdata))
+        (status, data) = unframe(list(rdata))
+    else:
+        return NODATA, ()
+    if status == DATAOK:
+        if not checkcrc(data):
+            status = BADCRC
+    return(status, data)
 
 #--------------------------------#
 def siwrite(tty, command, data=[]):
     """Write data to SI station."""
     fdata = frame(command, data)
-    tty.write(fdata)
-    logging.debug(">o>>> " + ':'.join('{:02x}'.format(x) for x in fdata)
+    tty.write(bytearray(fdata))
+    logging.debug(">o>>> " + ':'.join('{:02x}'.format(x) for x in fdata))
     return
 
 #--------------------------------#
-def handshake(tty, tries, command, data=[]):
+def handshake(tty, tries, command, wdata):
     """Try write - read cycle tries times."""
     while tries > 0:
-        siwrite(tty, command, data)
-        data = siread(tty)
-        if data:
-            status, udata = unframe(data)
-            if status != NAK: return udata
-        tries -= 1
-        time.sleep(1)
-    raise HandshakeMaxTries()    
+        siwrite(tty, command, wdata)
+        (status, rdata) = siread(tty)
+        if status == DATAOK:
+            return rdata
+        else:
+            tries -= 1
+            logging.warning("Bad status, {} tries left.".format(tries))
+            time.sleep(1)
+    raise SiException("Handshake failed")
 
-def siinit(device):
+def sinit(device, ms_opt):
     """Initialize serial communication with SI master station."""
     bauds = (38400, 4800)
     for baudrate in bauds:
-        tty = serial.Serial(device, baudrate, timeout=2)
         try:
-            handshake(tty, 1, 0xf0, 0x4d)
-        except HandshakeMaxTries:
-            tty.close()
-        else:
-            break
+            tty = serial.Serial('/dev/'+device, baudrate, rtscts=True, timeout=0.2)   # Timeout 0.2 sec is reliable
+            data = handshake(tty, 1, 0xf0, [0x4d])
+        except SiException: tty.close()
+        else: break
+    else:
+        raise SiException("Cannot set baudrate.")
 
+    ms_opt['cn'] = (data[2] << 8) + data[3]
+    data = handshake(tty, 3, 0x83, [0x74,0x01])     # Get protocol information
+    ms_opt['cpc'] = data[5]
+    ms_opt['extprot'] = data[5] & 0x01
+    ms_opt['autosend'] = (data[5] >> 1) & 0x01
+    ms_opt['handshake'] = (data[5] >> 2) & 0x01
+    ms_opt['password'] = (data[5] >> 4) & 0x01
+    ms_opt['punch'] = (data[5] >> 7) & 0x01
+    ms_opt['speed'] = baudrate
+    return

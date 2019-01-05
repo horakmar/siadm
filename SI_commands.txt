@@ -1,0 +1,195 @@
+# New command set
+-----------------
+Code Action             Command string              Response
+---------------------------------------------------------------
+81   Get data from bck  81,04,ADR2,ADR1,ADR0,NUM    81,LEN,CN1,CN0,ADR2,ADR1,ADR0,<NUM bytes of data>
+82   Set system value   82,LEN,OFFSET,<data>        82,LEN,CN1,CN0,OFFSET
+83   Get system data    83,02,OFFSET,NUM            83,LEN,CN1,CN0,OFFSET,<NUM bytes of data>
+B1   Get SI5 data       B1,00                       B1,82,CN1,CN0,<128 byte>
+D3   Transmit punch     autosend                    D3,0D,CN1,CN0,SN3,SN2,SN1,SN0,TD,TH,TL,TSS,MEM2,MEM1,MEM0
+E1   Get SI6 data       E1,01,BN                    E1,83,CN1,CN0,BN,<128 byte>
+E5   SI5 detected       autosend                    E5,06,CN1,CN0,SI3,SI2,SI1,SI0
+E6   SI6 detected       autosend                    E6,06,CN1,CN0,SI3,SI2,SI1,SI0
+E7   SI card removed    autosend                    E7,06,CN1,CN0,SI3,SI2,SI1,SI0
+E8   SI8+ detected      autosend                    E8,06,CN1,CN0,SI3,SI2,SI1,SI0
+EF   Get SI8+ data      EF,01,BN                    EF,83,CN1,CN0,BN,<128 byte>
+F0   Set MS mode        F0,01,MS                    F0,03,CN1,CN0,MS                # MS: Local = 4D, Remote = 53
+F5   Erase backup data  F5,00                       F5,02,CN1,CN0
+F6   Set time           F6,07,P1...P7               F6,09,CN1,CN0,P1...P7
+F7   Get time           F7,00                       F7,09,CN1,CN0,P1...P7
+F8   Turn off           F8,01,60                    F8,03,CN1,CN0,60
+F8   Turn off           F8,00                       F8,03,CN1,CN0,F8 ???
+F9   Beep               F9,01,<beeps>               F9,03,CN1,CN0,<beeps>
+FE   Set baud           FE,01,<speed>               FE,03,CN1,CN0,<speed>           # speed: 4800 = 00, 38400 = 01
+
+
+# Old command set
+-----------------
+Code Action             Command string              Response
+---------------------------------------------------------------
+70   Set MS mode        70,MS                       70,CN,MS
+7E   Set baud           7E,<speed>                  7E,CN,<speed>
+31   Get SI5 data
+61   Get SI6 data
+4649 SI5 detected
+66   SI6 detected
+464F SI card removed
+53   Transmit punch
+54   Time autosend
+75   Erase backup data
+74   Get data from bck
+7A   Get data from bck (extended start/finish)
+76   Set time
+77   Get time
+30   Set start number
+
+# Offsets in system data
+------------------------
+71	 Operation mode
+72	 Station code
+74	 Protocol
+
+
+Control System data:
+<SN3>,<SN2>,<SN1>,<SN0>,FF
+
+offset 55 - 56 ... time
+
+
+% CON 45
+#02#83#83#00#2D#00#00#02#58#7F#FF#35#37#34#0C#02#1C#81#98#80#20#CE#4B#08#4E#FA#28#0C#02#1C#00#36#EE#80#00#00#18#04#FF#01#00#00#00#00#00#00#00#00#00#4D#00#70#FF#FF#FF#00#83#C1#00#D1#00#A9#00#00#00#00#FF#00#11#68#00#24#FE#40#FF#19#FF#99#05#1E#7F#F8#99#84#FF#FF#AE#A2#6E#50#FF#FF#FF#FF#FF#FF#FF#FF#FF#FF#FF#FF#30#30#30#35#3D#20#00#00#00#00#00#00#FF#FF#FF#FF#30#02#2D#37#00#00#00#00#00#00#02#00#1C#22#00#78#6E#E1#03
+% FIN 7
+#02#83#83#00#07#00#00#02#58#89#FF#35#37#34#0C#02#1C#81#98#80#20#F5#4B#08#4E#FA#28#0C#02#1C#00#36#EE#80#00#00#18#04#FF#01#00#00#00#00#00#00#00#00#00#00#4D#70#FF#FF#FF#00#AB#C1#00#00#FD#E5#00#00#00#FF#00#00#A0#00#8A#24#00#B2#FF#FF#19#99#05#1E#7F#F8#99#84#FF#FF#B0#5E#6C#24#FF#FF#FF#FF#FF#FF#FF#FF#FF#FF#FF#FF#30#30#30#35#3D#20#00#00#00#00#00#00#FF#FF#FF#FF#30#04#07#37#00#00#00#00#00#00#02#00#1C#22#00#78#D9#5C#03
+% CLR 3
+#02#83#83#00#03#00#00#02#57#EA#FF#35#37#34#0C#02#1B#81#98#80#20#E0#4B#08#4E#FA#28#0C#02#1B#00#36#EE#80#00#00#18#04#FF#01#7E#00#00#00#00#00#00#00#00#00#4D#70#FF#FF#FF#00#83#C1#00#01#2F#A0#00#00#00#00#FF#00#18#80#00#24#FE#38#FF#FF#19#99#05#1E#7F#F8#99#84#FF#FF#B0#02#6E#72#FF#FF#FF#FF#FF#FF#FF#FF#FF#FF#FF#FF#30#30#30#35#3D#20#00#00#00#00#00#00#FF#FF#FF#FF#30#07#37#03#00#00#00#00#00#00#02#00#1C#22#00#78#BD#0B#03
+
+# Basic protocol commands
+    BC_SET_MS     = '\x70'
+
+
+# Extended protocol commands
+    C_GET_BACKUP  = '\x81'
+    C_SET_SYS_VAL = '\x82'
+    C_GET_SYS_VAL = '\x83'
+    C_GET_SI5     = '\xB1'
+    C_TRANS_REC   = '\xD3'
+    C_GET_SI6     = '\xE1'
+    C_SI5_DET     = '\xE5'
+    C_SI6_DET     = '\xE6'
+    C_SI_REM      = '\xE7'
+    C_SI9_DET     = '\xE8'
+    C_GET_SI9     = '\xEF'
+    C_SET_MS      = '\xF0'
+    C_ERASE_BDATA = '\xF5'
+    C_SET_TIME    = '\xF6'
+    C_GET_TIME    = '\xF7'
+    C_BEEP        = '\xF9'
+    C_SET_BAUD    = '\xFE'
+
+# offsets in system data
+    O_MODE        = '\x71'
+    O_STATION_CODE= '\x72'
+    O_PROTO       = '\x74'
+
+# SI station modes
+    M_CONTROL     = '\x02'
+    M_START       = '\x03'
+    M_FINISH      = '\x04'
+    M_READOUT     = '\x05'
+    M_CLEAR       = '\x07'
+    M_CHECK       = '\x0a'
+    SUPPORTED_MODES = (M_CONTROL, M_START, M_FINISH, M_READOUT, M_CLEAR, M_CHECK)
+
+# General card data structure values
+    TIME_RESET    = '\xEE\xEE'
+
+# SI Card data structures
+    CARD          = {'SI5':{'CN2': 6,   # card number byte 2
+                            'CN1': 4,   # card number byte 1
+                            'CN0': 5,   # card number byte 0
+                            'ST' : 19,  # start time
+                            'FT' : 21,  # finish time
+                            'CT' : 25,  # check time
+                            'LT' : None,# clear time
+                            'RC' : 23,  # punch counter
+                            'P1' : 32,  # first punch
+                            'PL' : 3,   # punch data length in bytes
+                            'PM' : 30,  # punch maximum (punches 31-36 have no time)
+                            'CN' : 0,   # control number offset in punch record
+                            'PTH' :1,   # punchtime high byte offset in punch record
+                            'PTL' :2,   # punchtime low byte offset in punch record
+                            },
+                     'SI6':{'CN2': 11,
+                            'CN1': 12,
+                            'CN0': 13,
+                            'ST' : 26,
+                            'FT' : 22,
+                            'CT' : 30,
+                            'LT' : 34,
+                            'RC' : 18,
+                            'P1' : 128,
+                            'PL' : 4,
+                            'PM' : 64,
+                            'CN' : 1,
+                            'PTH': 2,
+                            'PTL': 3,
+                            },
+                     'SI8':{'CN2': 25,
+                            'CN1': 26,
+                            'CN0': 27,
+                            'ST' : 14,
+                            'FT' : 18,
+                            'CT' : 10,
+                            'LT' : None,
+                            'RC' : 22,
+                            'P1' : 136,
+                            'PL' : 4,
+                            'PM' : 50,
+                            'CN' : 1,
+                            'PTH': 2,
+                            'PTL': 3,
+                            'BC' : 2,   # number of blocks on card (only relevant for SI8 and above = those read with C_GET_SI9)
+                            },
+                     'SI9':{'CN2': 25,
+                            'CN1': 26,
+                            'CN0': 27,
+                            'ST' : 14,
+                            'FT' : 18,
+                            'CT' : 10,
+                            'LT' : None,
+                            'RC' : 22,
+                            'P1' : 56,
+                            'PL' : 4,
+                            'PM' : 50,
+                            'CN' : 1,
+                            'PTH': 2,
+                            'PTL': 3,
+                            'BC' : 2,
+                            },
+                    'SI10':{'CN2': 25,
+                            'CN1': 26,
+                            'CN0': 27,
+                            'ST' : 14,
+                            'FT' : 18,
+                            'CT' : 10,
+                            'LT' : None,
+                            'RC' : 22,
+                            'P1' : 128,
+                            'PL' : 4,
+                            'PM' : 64,
+                            'CN' : 1,
+                            'PTH': 2,
+                            'PTL': 3,
+                            'BC' : 8,
+                            },
+                     }
+
+    # punch trigger in control mode data structure
+    T_OFFSET      = 8
+    T_CN          = 0
+    T_TIME        = 5
+
+    # backup memory in control mode 
+    BC_CN         = 3
+    BC_TIME       = 8
+
