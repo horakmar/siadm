@@ -27,6 +27,39 @@ SI_VENDOR_ID = '10c4'
 SI_PRODUCT_ID = '800a'
 SI_CHUNK = 256
 
+# Commands
+CMD_SETMSMODE = 0xf0; # mode
+CMD_SETTIME   = 0xf6; # p1..p7
+CMD_GETTIME   = 0xf7;
+CMD_OFF       = 0xf8;
+CMD_BEEP      = 0xf9; # numbeeps
+CMD_SETSPEED  = 0xfe; # speed
+CMD_GETMEM    = 0x81; # adr2, adr1, adr0, numbytes
+CMD_CLEARMEM  = 0xf5;
+CMD_SETDATA   = 0x82; # offset, [data]
+CMD_GETDATA   = 0x83; # offset, numbytes
+CMD_GETSI5    = 0xb1;
+CMD_GETSI6    = 0xe1; # bn
+CMD_GETSI8    = 0xef; # bn
+
+# Autosend commands
+CMD_INSI5     = 0xe5; # cn1, cn0, si3..si0
+CMD_INSI6     = 0xe6; # cn1, cn0, si3..si0
+CMD_INSI8     = 0xe8; # cn1, cn0, si3..si0
+CMD_OUTSI     = 0xe7; # cn1, cn0, si3..si0
+CMD_PUNCH     = 0xd3; # cn1, cn0, si3..si0, td, th, tl, tss, mem2..mem0
+
+# Arguments
+MODE_LOCAL = 0x4d;
+MODE_REMOTE = 0x53;
+SPEED_38400 = 0x01;
+SPEED_4800  = 0x00;
+
+# Offsets           # Len
+O_MODE      = 0x71; # 1
+O_CODE      = 0x72; # 2
+O_PROT      = 0x74; # 1
+
 import os, logging, serial, time
 
 ##################################
