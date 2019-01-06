@@ -28,26 +28,26 @@ SI_PRODUCT_ID = '800a'
 SI_CHUNK = 256
 
 # Commands
-CMD_SETMSMODE = 0xf0; # mode
-CMD_SETTIME   = 0xf6; # p1..p7
-CMD_GETTIME   = 0xf7;
-CMD_OFF       = 0xf8;
-CMD_BEEP      = 0xf9; # numbeeps
-CMD_SETSPEED  = 0xfe; # speed
-CMD_GETMEM    = 0x81; # adr2, adr1, adr0, numbytes
-CMD_CLEARMEM  = 0xf5;
-CMD_SETDATA   = 0x82; # offset, [data]
-CMD_GETDATA   = 0x83; # offset, numbytes
-CMD_GETSI5    = 0xb1;
-CMD_GETSI6    = 0xe1; # bn
-CMD_GETSI8    = 0xef; # bn
+C_SETMSMODE = 0xf0; # mode
+C_SETTIME   = 0xf6; # p1..p7
+C_GETTIME   = 0xf7;
+C_OFF       = 0xf8;
+C_BEEP      = 0xf9; # numbeeps
+C_SETSPEED  = 0xfe; # speed
+C_GETMEM    = 0x81; # adr2, adr1, adr0, numbytes
+C_CLEARMEM  = 0xf5;
+C_SETDATA   = 0x82; # offset, [data]
+C_GETDATA   = 0x83; # offset, numbytes
+C_GETSI5    = 0xb1;
+C_GETSI6    = 0xe1; # bn
+C_GETSI8    = 0xef; # bn
 
 # Autosend commands
-CMD_INSI5     = 0xe5; # cn1, cn0, si3..si0
-CMD_INSI6     = 0xe6; # cn1, cn0, si3..si0
-CMD_INSI8     = 0xe8; # cn1, cn0, si3..si0
-CMD_OUTSI     = 0xe7; # cn1, cn0, si3..si0
-CMD_PUNCH     = 0xd3; # cn1, cn0, si3..si0, td, th, tl, tss, mem2..mem0
+C_INSI5     = 0xe5; # cn1, cn0, si3..si0
+C_INSI6     = 0xe6; # cn1, cn0, si3..si0
+C_INSI8     = 0xe8; # cn1, cn0, si3..si0
+C_OUTSI     = 0xe7; # cn1, cn0, si3..si0
+C_PUNCH     = 0xd3; # cn1, cn0, si3..si0, td, th, tl, tss, mem2..mem0
 
 # Arguments
 MODE_LOCAL = 0x4d;
@@ -213,14 +213,14 @@ def sinit(device, ms_opt):
     for baudrate in bauds:
         try:
             tty = serial.Serial('/dev/'+device, baudrate, rtscts=True, timeout=0.2)   # Timeout 0.2 sec is reliable
-            data = handshake(tty, 1, 0xf0, [0x4d])
+            data = handshake(tty, 1, C_SETMSMODE, [MODE_LOCAL])
         except SiException: tty.close()
         else: break
     else:
         raise SiException("Cannot set baudrate.")
 
     ms_opt['cn'] = (data[2] << 8) + data[3]
-    data = handshake(tty, 3, 0x83, [0x74,0x01])     # Get protocol information
+    data = handshake(tty, 3, C_GETDATA, [O_PROT, 1])     # Get protocol information
     ms_opt['cpc'] = data[5]
     ms_opt['extprot'] = data[5] & 0x01
     ms_opt['autosend'] = (data[5] >> 1) & 0x01
@@ -228,4 +228,19 @@ def sinit(device, ms_opt):
     ms_opt['password'] = (data[5] >> 4) & 0x01
     ms_opt['punch'] = (data[5] >> 7) & 0x01
     ms_opt['speed'] = baudrate
-    return
+    return tty
+
+def setime(tty, tries):
+    '''
+    Set station time to computer time.
+    Try to count difference with multiple tries.
+    '''
+    while tries > 0:
+        ctime = time.localtime()
+        if ctime.tm_hour >= 12:
+            is_pm = 1
+            hour = ctime.tm_hour - 12
+        else:
+            is_pm = 0
+
+        handshake(tty, 1, C_SETTIME, ctime.tm_year % 100, ctime.tm_mon, ctime.tm_mday
