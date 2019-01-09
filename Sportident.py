@@ -9,6 +9,8 @@
 #
 ################################################
 
+import os, logging, serial, time
+
 # Communication constants
 WAKE = 0xff;
 STX = 0x02;
@@ -60,7 +62,6 @@ O_MODE      = 0x71; # 1
 O_CODE      = 0x72; # 2
 O_PROT      = 0x74; # 1
 
-import os, logging, serial, time
 
 ##################################
 # Custom exceptions
@@ -69,7 +70,7 @@ class SiException(Exception):
     pass
 
 ##################################
-# SI lowlevel functions
+# SI auxiliary functions
 ##################################
 
 #--------------------------------#
@@ -138,38 +139,69 @@ def station_detect():
     return devices
 
 #--------------------------------#
-def frame(command, data):
-    """Add framing to output data."""
-    length = len(data)
-    data[:0] = (command, length)
-    crcsum = crc(data);
-    data[:0] = (WAKE, STX)
-    data.extend((crcsum >> 8, crcsum & 0xff, ETX))
-    return data
 
-#--------------------------------#
-def unframe(data):
-    """Strip framing from input data."""
-    d = data.pop(0)
-    while len(data) > 0:
-        if d == STX: break
-        elif d == NAK: return NAK, ()
-        elif d == ACK: return ACK, ()
-        d = data.pop(0)
-    else:
-        return NODATA, ()
-    return DATAOK, data
 
-def checkcrc(data):
-    """Check CRC of received data."""
-    length = data[1]
-    data_crc = (data[length+2] << 8) + data[length+3]
-    comp_crc = crc_l(length+2, data)
-    if data_crc == comp_crc:
-        return True
-    else:
-        logging.warning("Bad CRC. Received: {}, Computed: {}".format(data_crc, comp_crc))
-        return False
+##################################
+# SI main class
+##################################
+class Si():
+    '''SI master station class'''
+    def __init__(self, tty):
+        '''Initialize serial communication with SI master station.'''
+        self.tty = tty
+        bauds = (38400, 4800)
+        for baudrate in bauds:
+            try:
+                self.dev = serial.Serial('/dev/'+tty, baudrate, timeout=0.2)   # Timeout 0.2 sec is reliable
+                result = self.handshake(1, C_SETMSMODE, [MODE_LOCAL])
+            except SiException: self.dev.close()
+            else: break
+        else:
+            raise SiException("Cannot set baudrate.")
+
+        self.cn = (data[2] << 8) + data[3]
+        self.speed = baudrate
+        result = self.handshake(3, C_GETDATA, [O_PROT, 1])     # Get protocol information
+        self.cpc = self.rdata[5]
+        self.extprot = self.cpc & 0x01
+        self.autosend = (self.cpc >> 1) & 0x01
+        self.handshake = (self.cpc >> 2) & 0x01
+        self.password = (self.cpc >> 4) & 0x01
+        self.punch = (self.cpc >> 7) & 0x01
+
+    def frame(self, command, data):
+        '''Add framing to output data.'''
+        length = len(data)
+        self.wdata = bytearray((command, length))
+        self.wdata.extend(data)
+        crcsum = crc(data);
+        self.wdata.insert(0, STX)
+        self.wdata.insert(0,WAKE)
+        self.wdata.extend((crcsum >> 8, crcsum & 0xff, ETX))
+        return
+
+    def unframe(self):
+        '''Strip framing from input data.'''
+        d = self.rdata.pop(0)
+        while len(self.rdata) > 0:
+            if d == STX: break
+            elif d == NAK: return NAK
+            elif d == ACK: return ACK
+            d = self.rdata.pop(0)
+        else:
+            return NODATA
+        return DATAOK
+
+    def checkcrc(self):
+        '''Check CRC of received data.'''
+        length = self.rdata[1]
+        data_crc = (self.rdata[length+2] << 8) + self.rdata[length+3]
+        comp_crc = crc_l(length+2, self.rdata)
+        if data_crc == comp_crc:
+            return True
+        else:
+            logging.warning("Bad CRC. Received: {}, Computed: {}".format(data_crc, comp_crc))
+            return False
 
 #--------------------------------#
 def siread(tty):
