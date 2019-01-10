@@ -182,15 +182,26 @@ class Si():
 
     def unframe(self):
         '''Strip framing from input data.'''
-        d = self.rdata.pop(0)
         while len(self.rdata) > 0:
+            d = self.rdata.pop(0)
             if d == STX: break
-            elif d == NAK: return NAK
-            elif d == ACK: return ACK
+            elif d == NAK:
+                self.status = NAK
+                raise SiException("NAK returned.")
+            elif d == ACK:
+                self.status = ACK
+                raise SiException("ACK returned.")
             d = self.rdata.pop(0)
         else:
-            return NODATA
-        return DATAOK
+            self.status = NODATA
+            raise SiException("No readable data.")
+
+        if self.checkcrc():
+            self.status = DATAOK
+            return
+        else:
+            self.status = BADCRC
+            raise SiException("Bad CRC.")
 
     def checkcrc(self):
         '''Check CRC of received data.'''
@@ -204,63 +215,37 @@ class Si():
             return False
 
 #--------------------------------#
-def siread(tty):
-    """Read data from SI station."""
-    rdata = tty.read(SI_CHUNK)
-    if rdata:
-        logging.debug("<i<<< " + ':'.join('{:02x}'.format(x) for x in rdata))
-        (status, data) = unframe(list(rdata))
-    else:
-        return NODATA, ()
-    if status == DATAOK:
-        if not checkcrc(data):
-            status = BADCRC
-    return(status, data)
+    def siread(self):
+        """Read data from SI station."""
+        self.rdata = self.dev.read(SI_CHUNK)
+        if self.rdata:
+            logging.debug("<i<<< " + ':'.join('{:02x}'.format(x) for x in self.rdata))
+        self.unframe()
 
 #--------------------------------#
-def siwrite(tty, command, data=[]):
-    """Write data to SI station."""
-    fdata = frame(command, data)
-    tty.write(bytearray(fdata))
-    logging.debug(">o>>> " + ':'.join('{:02x}'.format(x) for x in fdata))
-    return
+    def siwrite(self, command, data=[]):
+        """Write data to SI station."""
+        self.frame(command, data)
+        self.dev.write(self.wdata)
+        logging.debug(">o>>> " + ':'.join('{:02x}'.format(x) for x in self.wdata))
+        return
 
 #--------------------------------#
-def handshake(tty, tries, command, wdata):
-    """Try write - read cycle tries times."""
-    while tries > 0:
-        siwrite(tty, command, wdata)
-        (status, rdata) = siread(tty)
-        if status == DATAOK:
-            return rdata
-        else:
-            tries -= 1
-            logging.warning("Bad status, {} tries left.".format(tries))
-            time.sleep(1)
-    raise SiException("Handshake failed")
+    def handshake(self, tries, command, data):
+        """Try write - read cycle tries times."""
+        while True:
+            try:
+                self.siwrite(command, data)
+                self.siread(tty)
+            except SiException:
+                tries -= 1
+                logging.warning("Bad status, {} tries left.".format(tries))
+                if tries <= 0:
+                    raise SiException("Handshake failed.")
+                    break
+                else:
+                    time.sleep(1)
 
-def sinit(device, ms_opt):
-    """Initialize serial communication with SI master station."""
-    bauds = (38400, 4800)
-    for baudrate in bauds:
-        try:
-            tty = serial.Serial('/dev/'+device, baudrate, rtscts=True, timeout=0.2)   # Timeout 0.2 sec is reliable
-            data = handshake(tty, 1, C_SETMSMODE, [MODE_LOCAL])
-        except SiException: tty.close()
-        else: break
-    else:
-        raise SiException("Cannot set baudrate.")
-
-    ms_opt['cn'] = (data[2] << 8) + data[3]
-    data = handshake(tty, 3, C_GETDATA, [O_PROT, 1])     # Get protocol information
-    ms_opt['cpc'] = data[5]
-    ms_opt['extprot'] = data[5] & 0x01
-    ms_opt['autosend'] = (data[5] >> 1) & 0x01
-    ms_opt['handshake'] = (data[5] >> 2) & 0x01
-    ms_opt['password'] = (data[5] >> 4) & 0x01
-    ms_opt['punch'] = (data[5] >> 7) & 0x01
-    ms_opt['speed'] = baudrate
-    return tty
 
 def setime(tty, tries):
     '''
