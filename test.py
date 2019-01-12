@@ -1,17 +1,19 @@
 #!/usr/bin/python3
 
-import Sportident, logging
+import sportident, logging
 
 logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
 
 logging.debug("Starting SI.")
 
-port = Sportident.station_detect()
+port = sportident.station_detect()
 
-print("Detected tty: {}".format(port))
+if len(port) <= 0:
+    print("No master station detected.")
+else:
+    print("Detected master station at: {}".format(port))
 
-si_master = {}
+    si = sportident.Si(port[0])
+    print(si)
 
-Sportident.sinit(port[0], si_master)
-
-print(si_master)
+    si.setime()

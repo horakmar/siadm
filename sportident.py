@@ -10,58 +10,64 @@
 ################################################
 
 import os, logging, serial, time
+from datetime import datetime
 
 # Communication constants
-WAKE = 0xff;
-STX = 0x02;
-ETX = 0x03;
-ACK = 0x06;
-NAK = 0x15;
-DLE = 0x10;
+WAKE = 0xff
+STX = 0x02
+ETX = 0x03
+ACK = 0x06
+NAK = 0x15
+DLE = 0x10
 
 # Status constants
-DATAOK = 0x20;
-NODATA = 0x21;
-BADCRC = 0x22;
-BADATA = 0x23;
+DATAOK = 0x20
+NODATA = 0x21
+BADCRC = 0x22
+BADATA = 0x23
 
 SI_VENDOR_ID = '10c4'
 SI_PRODUCT_ID = '800a'
 SI_CHUNK = 256
 
 # Commands
-C_SETMSMODE = 0xf0; # mode
-C_SETTIME   = 0xf6; # p1..p7
-C_GETTIME   = 0xf7;
-C_OFF       = 0xf8;
-C_BEEP      = 0xf9; # numbeeps
-C_SETSPEED  = 0xfe; # speed
-C_GETMEM    = 0x81; # adr2, adr1, adr0, numbytes
-C_CLEARMEM  = 0xf5;
-C_SETDATA   = 0x82; # offset, [data]
-C_GETDATA   = 0x83; # offset, numbytes
-C_GETSI5    = 0xb1;
-C_GETSI6    = 0xe1; # bn
-C_GETSI8    = 0xef; # bn
+C_SETMSMODE = 0xf0 # mode
+C_SETTIME   = 0xf6 # p1..p7
+C_GETTIME   = 0xf7
+C_OFF       = 0xf8
+C_BEEP      = 0xf9 # numbeeps
+C_SETSPEED  = 0xfe # speed
+C_GETMEM    = 0x81 # adr2, adr1, adr0, numbytes
+C_CLEARMEM  = 0xf5
+C_SETDATA   = 0x82 # offset, [data]
+C_GETDATA   = 0x83 # offset, numbytes
+C_GETSI5    = 0xb1
+C_GETSI6    = 0xe1 # bn
+C_GETSI8    = 0xef # bn
 
 # Autosend commands
-C_INSI5     = 0xe5; # cn1, cn0, si3..si0
-C_INSI6     = 0xe6; # cn1, cn0, si3..si0
-C_INSI8     = 0xe8; # cn1, cn0, si3..si0
-C_OUTSI     = 0xe7; # cn1, cn0, si3..si0
-C_PUNCH     = 0xd3; # cn1, cn0, si3..si0, td, th, tl, tss, mem2..mem0
+C_INSI5     = 0xe5 # cn1, cn0, si3..si0
+C_INSI6     = 0xe6 # cn1, cn0, si3..si0
+C_INSI8     = 0xe8 # cn1, cn0, si3..si0
+C_OUTSI     = 0xe7 # cn1, cn0, si3..si0
+C_PUNCH     = 0xd3 # cn1, cn0, si3..si0, td, th, tl, tss, mem2..mem0
 
 # Arguments
-MODE_LOCAL = 0x4d;
-MODE_REMOTE = 0x53;
-SPEED_38400 = 0x01;
-SPEED_4800  = 0x00;
+MODE_LOCAL = 0x4d
+MODE_REMOTE = 0x53
+SPEED_38400 = 0x01
+SPEED_4800  = 0x00
 
-# Offsets           # Len
-O_MODE      = 0x71; # 1
-O_CODE      = 0x72; # 2
-O_PROT      = 0x74; # 1
+# Offsets          # Len
+O_MODE      = 0x71 # 1
+O_CODE      = 0x72 # 1
+O_PROT      = 0x74 # 1
+O_FWVER     = 0x05 # 3
+O_BATCONS   = 0x34 # 4
+O_BATCAP    = 0x18 # 4
+O_BATVOLT   = 0x50 # 2
 
+MODES = ('Undef', 'Undef', 'Control', 'Start', 'Finish', 'Readout', 'Undef', 'Clear', 'Undef', 'Undef', 'Check')
 
 ##################################
 # Custom exceptions
@@ -153,28 +159,42 @@ class Si():
         for baudrate in bauds:
             try:
                 self.dev = serial.Serial('/dev/'+tty, baudrate, timeout=0.2)   # Timeout 0.2 sec is reliable
-                result = self.handshake(1, C_SETMSMODE, [MODE_LOCAL])
+                self.handshake(C_SETMSMODE, (MODE_LOCAL,), 1)
             except SiException: self.dev.close()
             else: break
         else:
             raise SiException("Cannot set baudrate.")
 
-        self.cn = (data[2] << 8) + data[3]
+        self.cn = (self.rdata[2] << 8) + self.rdata[3]
         self.speed = baudrate
-        result = self.handshake(3, C_GETDATA, [O_PROT, 1])     # Get protocol information
+        self.handshake(C_GETDATA, (O_PROT, 1), 3)     # Get protocol information
         self.cpc = self.rdata[5]
         self.extprot = self.cpc & 0x01
         self.autosend = (self.cpc >> 1) & 0x01
-        self.handshake = (self.cpc >> 2) & 0x01
+        self.handshk = (self.cpc >> 2) & 0x01
         self.password = (self.cpc >> 4) & 0x01
         self.punch = (self.cpc >> 7) & 0x01
+        self.handshake_tries = 5
+
+    def __str__(self):
+        s  = (f"SI master station at {self.tty}:\n"
+              f"    Speed: {self.speed}\n"
+              f"    CN: {self.cn}\n"
+              f"    Tries: {self.handshake_tries}\n"
+              f"    CPC: {self.cpc}\n"
+              f"        ExtProt: {self.extprot}\n"
+              f"        AutoSend: {self.autosend}\n"
+              f"        Handshake: {self.handshk}\n"
+              f"        Password: {self.password}\n"
+              f"        Punch: {self.punch}\n")
+        return s
 
     def frame(self, command, data):
         '''Add framing to output data.'''
         length = len(data)
         self.wdata = bytearray((command, length))
         self.wdata.extend(data)
-        crcsum = crc(data);
+        crcsum = crc(self.wdata);
         self.wdata.insert(0, STX)
         self.wdata.insert(0,WAKE)
         self.wdata.extend((crcsum >> 8, crcsum & 0xff, ETX))
@@ -187,21 +207,20 @@ class Si():
             if d == STX: break
             elif d == NAK:
                 self.status = NAK
-                raise SiException("NAK returned.")
+                return self.status
             elif d == ACK:
                 self.status = ACK
-                raise SiException("ACK returned.")
+                return self.status
             d = self.rdata.pop(0)
         else:
             self.status = NODATA
-            raise SiException("No readable data.")
+            return self.status
 
         if self.checkcrc():
             self.status = DATAOK
-            return
         else:
             self.status = BADCRC
-            raise SiException("Bad CRC.")
+        return self.status
 
     def checkcrc(self):
         '''Check CRC of received data.'''
@@ -217,13 +236,13 @@ class Si():
 #--------------------------------#
     def siread(self):
         """Read data from SI station."""
-        self.rdata = self.dev.read(SI_CHUNK)
+        self.rdata = bytearray(self.dev.read(SI_CHUNK))
         if self.rdata:
             logging.debug("<i<<< " + ':'.join('{:02x}'.format(x) for x in self.rdata))
-        self.unframe()
+        return self.unframe()
 
 #--------------------------------#
-    def siwrite(self, command, data=[]):
+    def siwrite(self, command, data=()):
         """Write data to SI station."""
         self.frame(command, data)
         self.dev.write(self.wdata)
@@ -231,33 +250,47 @@ class Si():
         return
 
 #--------------------------------#
-    def handshake(self, tries, command, data):
+    def handshake(self, command, data=(), tries=0):
         """Try write - read cycle tries times."""
-        while True:
-            try:
-                self.siwrite(command, data)
-                self.siread(tty)
-            except SiException:
+        if tries == 0: tries = self.handshake_tries
+        while tries > 0:
+            self.siwrite(command, data)
+            if self.siread() == DATAOK:
+                break
+            else:
                 tries -= 1
                 logging.warning("Bad status, {} tries left.".format(tries))
-                if tries <= 0:
-                    raise SiException("Handshake failed.")
-                    break
-                else:
-                    time.sleep(1)
-
-
-def setime(tty, tries):
-    '''
-    Set station time to computer time.
-    Try to count difference with multiple tries.
-    '''
-    while tries > 0:
-        ctime = time.localtime()
-        if ctime.tm_hour >= 12:
-            is_pm = 1
-            hour = ctime.tm_hour - 12
+                if tries > 0: time.sleep(1)
         else:
-            is_pm = 0
+            raise SiException('Handshake failed, no tries left.')
 
-        handshake(tty, 1, C_SETTIME, ctime.tm_year % 100, ctime.tm_mon, ctime.tm_mday
+    def setime(self, tries=0):
+        '''
+        Set station time to computer time.
+        Try to count difference with multiple tries.
+        '''
+        if tries == 0: tries = self.handshake_tries
+        while tries > 0:
+            t = datetime.now()
+            if t.hour >= 12:
+                is_pm = 1
+                hour = t.hour - 12
+            else:
+                is_pm = 0
+                hour = t.hour
+            td = ((t.isoweekday() % 7) << 1) + is_pm
+            secs = hour * 3600 + t.minute * 60 + t.second
+            tss = round(t.microsecond * 256 / 1000000)
+            data = (t.year % 100, t.month, t.day, td, (secs >> 8) & 0xff, secs & 0xff, tss)
+            self.siwrite(C_SETTIME, data)
+            if self.siread() == DATAOK:
+                break
+            else:
+                tries -= 1
+                logging.warning("Bad status, {} tries left.".format(tries))
+                if tries > 0: time.sleep(1)
+        else:
+            raise SiException('Settime failed, no tries left.')
+
+        logging.debug("Time set successfully.")
+
