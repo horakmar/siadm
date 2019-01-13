@@ -11,6 +11,7 @@
 
 # Uncomment after installing
 #use lib "$ENV{HOME}/lib";
+use lib ".";
 
 use strict;
 use Sportident qw(si_debug si_read si_write si_timeout si_init ACK NAK si_portdetect si_handshake si_mktime si_settime);

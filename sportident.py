@@ -59,13 +59,16 @@ SPEED_38400 = 0x01
 SPEED_4800  = 0x00
 
 # Offsets          # Len
+O_FWVER     = 0x05 # 3
+O_BATALL    = 0x15 # 63
+O_BATDATE   = 0x15 # 3
+O_BATCAP    = 0x18 # 4
+O_BATCONS   = 0x34 # 4
+O_BATVOLT   = 0x50 # 2
+O_BATTEMP   = 0x52 # 2
 O_MODE      = 0x71 # 1
 O_CODE      = 0x72 # 1
 O_PROT      = 0x74 # 1
-O_FWVER     = 0x05 # 3
-O_BATCONS   = 0x34 # 4
-O_BATCAP    = 0x18 # 4
-O_BATVOLT   = 0x50 # 2
 
 MODES = ('Undef', 'Undef', 'Control', 'Start', 'Finish', 'Readout', 'Undef', 'Clear', 'Undef', 'Undef', 'Check')
 
@@ -145,7 +148,14 @@ def station_detect():
     return devices
 
 #--------------------------------#
+def set_bit(val, index, bitval):
+    '''Set specific bit to bitval.'''
+    if bitval:
+        return val | (1 << index)
+    else:
+        return val & ~(1 << index)
 
+#--------------------------------#
 
 ##################################
 # SI main class
@@ -167,14 +177,8 @@ class Si():
 
         self.cn = (self.rdata[2] << 8) + self.rdata[3]
         self.speed = baudrate
-        self.handshake(C_GETDATA, (O_PROT, 1), 3)     # Get protocol information
-        self.cpc = self.rdata[5]
-        self.extprot = self.cpc & 0x01
-        self.autosend = (self.cpc >> 1) & 0x01
-        self.handshk = (self.cpc >> 2) & 0x01
-        self.password = (self.cpc >> 4) & 0x01
-        self.punch = (self.cpc >> 7) & 0x01
         self.handshake_tries = 5
+        self.refreshprot()
 
     def __str__(self):
         s  = (f"SI master station at {self.tty}:\n"
@@ -186,7 +190,7 @@ class Si():
               f"        AutoSend: {self.autosend}\n"
               f"        Handshake: {self.handshk}\n"
               f"        Password: {self.password}\n"
-              f"        Punch: {self.punch}\n")
+              f"        PunchRead: {self.punchread}\n")
         return s
 
     def frame(self, command, data):
@@ -264,6 +268,7 @@ class Si():
         else:
             raise SiException('Handshake failed, no tries left.')
 
+#--------------------------------#
     def setime(self, tries=0):
         '''
         Set station time to computer time.
@@ -293,4 +298,15 @@ class Si():
             raise SiException('Settime failed, no tries left.')
 
         logging.debug("Time set successfully.")
+
+#--------------------------------#
+    def refreshprot(self):
+        '''Read protocol info and save it to properties'''
+        self.handshake(C_GETDATA, (O_PROT, 1), 3)     # Get protocol information
+        self.cpc = self.rdata[5]
+        self.extprot = bool(self.cpc & 0x01)
+        self.autosend = bool(self.cpc & 0x02)
+        self.handshk = bool(self.cpc & 0x04)
+        self.password = bool(self.cpc & 0x10)
+        self.punchread = bool(self.cpc & 0x80)
 
