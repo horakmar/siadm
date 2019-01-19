@@ -145,3 +145,84 @@ class SiAdmin(si.Si):
         '''Set battery change date.'''
         self.handshake(si.C_SETDATA, (si.O_BATDATE, date.year % 100, date.month, date.day))
 
+## End of class SiAdmin ## -----------------
+
+## Constants ## ----------------------------
+############### ----------------------------
+LOCAL  = 0
+REMOTE = 1
+
+## Functions ## ----------------------------
+############### ----------------------------
+## Usage ## --------------------------------
+def Usage():
+    '''Usage help'''
+
+    usage = """
+Usage:
+    {script_name} [-h] [-tvq]
+
+Program <desc>
+
+Parameters:
+    -h  ... help - this help
+    -t  ... test - dry run
+    -v  ... more verbose
+    -q  ... more quiet = less verbose
+
+Bugs:
+
+"""
+    print usage.format(script_name = sys.argv[0])
+    return
+
+## Usage end ## ----------------------------
+
+## Main ## ---------------------------
+######################################
+def main():
+    '''Main program description'''
+## Variables ## ============================
+    test = False
+    verbose = 1
+    target = REMOTE
+
+## Getparam ## -----------------------------
+    argn = []
+    args = sys.argv;
+    i = 1
+    try:
+        while(i < len(args)):
+            if(args[i][0] == '-'):
+                for j in args[i][1:]:
+                    if j == 'h':
+                        Usage()
+                        return
+                    elif j == 't':
+                        test = True
+                    elif j == 'v':
+                        verbose += 1
+                    elif j == 'q':
+                        verbose -= 1
+                    elif j == 'l':
+                        target = LOCAL
+                    elif j == 'r':
+                        target = REMOTE
+                    elif j == 'x':
+                        i += 1
+                        log = args[i]
+            else:
+                argn.append(args[i])
+            i += 1
+    except IndexError:
+        print("Parameter read error.")
+        Usage()
+        return
+## Getparam end ## -------------------------
+    print("Main.")
+
+## Main run ## -----------------------
+######################################
+if __name__ == '__main__': 
+    main()
+
