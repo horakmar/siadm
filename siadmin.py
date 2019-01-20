@@ -10,10 +10,25 @@
 ################################################
 
 import sportident as si
-import datetime, logging
+import sys, datetime, logging
 
 class SiAdmin(si.Si):
     '''SI Administration tasks'''
+
+    def __init__(self, tty):
+        super.__init__(tty)
+
+        funcs = {
+            'off':    self.off,
+            'beep':   self.beep,
+            'rtime':  self.getime,
+            'wtime':  self.setime,
+            'rprot':  self.getprot,
+            'wprot':  self.setprot,
+            'rcn':    self.getmodecn,
+            'wcn':    self.setcnmode,
+            'rbat':   self.getbatall
+        }
 
     def setremote(self):
         '''Set communication to remote (controlled station).'''
@@ -173,7 +188,7 @@ Parameters:
 Bugs:
 
 """
-    print usage.format(script_name = sys.argv[0])
+    print(usage.format(script_name = sys.argv[0]))
     return
 
 ## Usage end ## ----------------------------
@@ -183,9 +198,9 @@ Bugs:
 def main():
     '''Main program description'''
 ## Variables ## ============================
-    test = False
-    verbose = 1
+    loglevel = logging.WARNING      # 30
     target = REMOTE
+    logfile = None
 
 ## Getparam ## -----------------------------
     argn = []
@@ -198,19 +213,17 @@ def main():
                     if j == 'h':
                         Usage()
                         return
-                    elif j == 't':
-                        test = True
                     elif j == 'v':
-                        verbose += 1
+                        if loglevel > 10: loglevel -= 10
                     elif j == 'q':
-                        verbose -= 1
+                        if loglevel < 50: loglevel += 10
                     elif j == 'l':
                         target = LOCAL
                     elif j == 'r':
                         target = REMOTE
-                    elif j == 'x':
+                    elif j == 'f':
                         i += 1
-                        log = args[i]
+                        logfile = args[i]
             else:
                 argn.append(args[i])
             i += 1
@@ -219,7 +232,30 @@ def main():
         Usage()
         return
 ## Getparam end ## -------------------------
-    print("Main.")
+
+    logcfg = {'format': '%(levelname)s: %(message)s', 'level': loglevel}
+    if logfile:
+        logcfg['filename'] = logfile
+    logging.basicConfig(**logcfg)
+
+    port = si.station_detect()
+    if len(port) == 0:
+        logging.error("No master station detected.")
+        return 1
+    else:
+        logging.debug("Detected master station at: {}".format(port[0]))
+
+    # Only first detected SI station is used
+    siadm = SiAdmin(port[0])
+
+    if target == REMOTE:
+        siadm.setremote()
+    # Local is set during initialization
+
+    for cmd in argn:
+        if cmd in siadm.funcs:
+            siadm.funcs[cmd]()
+
 
 ## Main run ## -----------------------
 ######################################
