@@ -10,15 +10,15 @@
 ################################################
 
 import sportident as si
-import sys, datetime, logging
+import sys, time, datetime, logging
 
 class SiAdmin(si.Si):
     '''SI Administration tasks'''
 
     def __init__(self, tty):
-        super.__init__(tty)
+        super().__init__(tty)
 
-        funcs = {
+        self.funcs = {
             'off':    self.off,
             'beep':   self.beep,
             'rtime':  self.getime,
@@ -127,7 +127,8 @@ class SiAdmin(si.Si):
     def getprot(self):
         '''Read communication protocol info.'''
         # Already read during init and saved in class attributes
-        return {'extprot': self.extprot,
+        return {'cpc': self.cpc,
+                'extprot': self.extprot,
                 'autosend': self.autosend,
                 'handshk': self.handshk,
                 'password': self.password,
@@ -204,7 +205,7 @@ def main():
 
 ## Getparam ## -----------------------------
     argn = []
-    args = sys.argv;
+    args = sys.argv
     i = 1
     try:
         while(i < len(args)):
@@ -252,10 +253,44 @@ def main():
         siadm.setremote()
     # Local is set during initialization
 
-    for cmd in argn:
-        if cmd in siadm.funcs:
-            siadm.funcs[cmd]()
+    while len(argn) > 0:
+        cmd = argn.pop(0)
+        if cmd == 'off':
+            siadm.off()
+        elif cmd == 'beep':
+            if len(argn) > 0 and argn[0].isdigit():
+                times = int(argn.pop(0))
+            else:
+                times = 1
+            siadm.beep(times)
+        elif cmd == 'rtime':
+            t = siadm.getime()
+            print('Station datetime: ', t.strftime('%d.%m.%Y %H:%M:%S'))
+        elif cmd == 'wtime':
+            siadm.setime()
+        elif cmd == 'rprot':
+            print("""Station protocol  CPC: 0x{:02x}
+    Extended protocol: {}
+    Autosend:          {}
+    Handshake:         {}
+    Password:          {}
+    Read after punch:  {}""".format(siadm.cpc, siadm.extprot, siadm.autosend, siadm.handshk, siadm.password, siadm.punchread))
+        elif cmd == 'rcn':
+            mode, cn = siadm.getmodecn()
+            print("Station number: {}".format(cn))
+            print("Station mode:   {}".format(si.MODES[mode]))
+        elif cmd == 'rbat':
+            bdate, bperc, bvolt, btemp = siadm.getbatall()
+            print("""Battery state:
+    Charge:      {} %
+    Voltage:     {:2.1f} V
+    Temperature: {:2.1f} °C
+    Change date: {}""".format(bperc, bvolt, btemp, bdate.strftime('%d.%m.%Y')))
 
+        if len(argn) > 0: time.sleep(0.5)
+###
+#            'wprot':  self.setprot,
+#            'wcn':    self.setcnmode,
 
 ## Main run ## -----------------------
 ######################################

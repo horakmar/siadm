@@ -1,19 +1,41 @@
 #!/usr/bin/python3
 
-import sportident, logging
+import sys
 
-logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.DEBUG)
+def main():
+## Getparam ## -----------------------------
+    argn = []
+    args = sys.argv;
+    i = 1
+    try:
+        while(i < len(args)):
+            if(args[i][0] == '-'):
+                for j in args[i][1:]:
+                    if j == 'h':
+                        Usage()
+                        return
+                    elif j == 'v':
+                        if loglevel > 10: loglevel -= 10
+                    elif j == 'q':
+                        if loglevel < 50: loglevel += 10
+                    elif j == 'l':
+                        target = LOCAL
+                    elif j == 'r':
+                        target = REMOTE
+                    elif j == 'f':
+                        i += 1
+                        logfile = args[i]
+            else:
+                argn.append(args[i])
+            i += 1
+    except IndexError:
+        print("Parameter read error.")
+        return
 
-logging.debug("Starting SI.")
+    for i in argn:
+        print("{} ... {}".format(i, type(i)))
 
-port = sportident.station_detect()
 
-if len(port) <= 0:
-    print("No master station detected.")
-else:
-    print("Detected master station at: {}".format(port))
+if __name__ == '__main__':
+    main()
 
-    si = sportident.Si(port[0])
-    print(si)
-
-    si.setime()
