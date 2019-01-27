@@ -160,7 +160,7 @@ REMOTE = 1
 ############### ----------------------------
 ## Usage ## --------------------------------
 def Usage():
-    '''Usage help'''
+    'Usage help'
 
     usage = """
 
@@ -190,11 +190,11 @@ Commands:
     wbatdate <dd.mm.yyyy> ... write battery change date
 
     wcn <number>,[mode]   ... write control number and mode [Control]
-        modes = {Control, Start, Finish, Readout, Clear, Check}
+        modes = {{Control, Start, Finish, Readout, Clear, Check}}
 
     wprot <ep>,<as>       ... write protocol info
-        ep = extended protocol [0/1]
-        as = autosend [0/1]
+        ep = extended protocol {{0,1}}
+        as = autosend {{0,1}}
 
     wtime     ... write computer localtime to the station
 
@@ -208,7 +208,7 @@ EOF
 ## Main ## ---------------------------
 ######################################
 def main():
-    '''Main program description'''
+    '''CLI utility for SI stations setup'''
 ## Variables ## ============================
     loglevel = logging.WARNING      # 30
     target = REMOTE
