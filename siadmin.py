@@ -18,18 +18,6 @@ class SiAdmin(si.Si):
     def __init__(self, tty):
         super().__init__(tty)
 
-        self.funcs = {
-            'off':    self.off,
-            'beep':   self.beep,
-            'rtime':  self.getime,
-            'wtime':  self.setime,
-            'rprot':  self.getprot,
-            'wprot':  self.setprot,
-            'rcn':    self.getmodecn,
-            'wcn':    self.setcnmode,
-            'rbat':   self.getbatall
-        }
-
     def setremote(self):
         '''Set communication to remote (controlled station).'''
         self.handshake(si.C_SETMSMODE, (si.MODE_REMOTE,))
@@ -175,19 +163,42 @@ def Usage():
     '''Usage help'''
 
     usage = """
-Usage:
-    {script_name} [-h] [-tvq]
 
-Program <desc>
+Usage:
+    {script_name} [-h] [-tvql] -s <tty> command [params]
+
+Setup SI station
 
 Parameters:
     -h  ... help - this help
-    -t  ... test - dry run
     -v  ... more verbose
     -q  ... more quiet = less verbose
+    -l  ... setup local (master) SI station
+    -r  ... setup remote SI station [default]
+    -f <file>  ... log messages to <file>
+    -s <tty>   ... serial port to use [first autodetected]
 
-Bugs:
+Commands:
+    off       ... turn off
+    beep [n]  ... make beep [n times]
+    rbat      ... read battery status
+    rcn       ... read control mode and number
+    rfw       ... read firmware version
+    rprot     ... read protocol info
+    rtime     ... read time
 
+    wbatdate <dd.mm.yyyy> ... write battery change date
+
+    wcn <number>,[mode]   ... write control number and mode [Control]
+        modes = {Control, Start, Finish, Readout, Clear, Check}
+
+    wprot <ep>,<as>       ... write protocol info
+        ep = extended protocol [0/1]
+        as = autosend [0/1]
+
+    wtime     ... write computer localtime to the station
+
+EOF
 """
     print(usage.format(script_name = sys.argv[0]))
     return
@@ -202,6 +213,7 @@ def main():
     loglevel = logging.WARNING      # 30
     target = REMOTE
     logfile = None
+    port = None
 
 ## Getparam ## -----------------------------
     argn = []
@@ -225,6 +237,9 @@ def main():
                     elif j == 'f':
                         i += 1
                         logfile = args[i]
+                    elif j == 's':
+                        i += 1
+                        port = args[i]
             else:
                 argn.append(args[i])
             i += 1
@@ -239,15 +254,17 @@ def main():
         logcfg['filename'] = logfile
     logging.basicConfig(**logcfg)
 
-    port = si.station_detect()
-    if len(port) == 0:
-        logging.error("No master station detected.")
-        return 1
-    else:
-        logging.debug("Detected master station at: {}".format(port[0]))
+    if not port:
+        ports = si.station_detect()
+        if len(ports) == 0:
+            logging.error("No master station detected.")
+            return 1
+        else:
+            port = ports[0]
+            logging.debug("Detected master station at: {}".format(port))
 
     # Only first detected SI station is used
-    siadm = SiAdmin(port[0])
+    siadm = SiAdmin(port)
 
     if target == REMOTE:
         siadm.setremote()
@@ -286,12 +303,22 @@ def main():
     Voltage:     {:2.1f} V
     Temperature: {:2.1f} °C
     Change date: {}""".format(bperc, bvolt, btemp, bdate.strftime('%d.%m.%Y')))
+        elif cmd == 'wprot':
+            ep,au = argn.pop(0).split(',', 1)
+            siadm.setprot({'extprot': bool(int(ep)), 'autosend': bool(int(au))})
+        elif cmd == 'wcn':
+            numode = argn.pop(0).split(',', 1)
+            siadm.setcnmode(*numode)
+        elif cmd == 'rfw':
+            fw = siadm.getfwversion()
+            print("Firmware version: {}".format(fw.decode()))
+        elif cmd == 'wbatdate':
+            y,m,d = argn(pop(0).split(',', 1))
+            bd = datetime.date(int(y), int(m), int (d))
+            siadm.setbatdate(bd)
 
         if len(argn) > 0: time.sleep(0.5)
 ###
-#            'wprot':  self.setprot,
-#            'wcn':    self.setcnmode,
-
 ## Main run ## -----------------------
 ######################################
 if __name__ == '__main__': 
