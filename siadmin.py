@@ -139,6 +139,7 @@ class SiAdmin(si.Si):
 
     def setcnmode(self, cn, mode='Control'):
         '''Set control number and mode.'''
+        cn = int(cn)
         if not 1 <= cn <= 255:
             raise si.SiException('Control number not in range 1-255.')
         if mode not in si.MODES:
@@ -294,8 +295,14 @@ def main():
     Read after punch:  {}""".format(siadm.cpc, siadm.extprot, siadm.autosend, siadm.handshk, siadm.password, siadm.punchread))
         elif cmd == 'rcn':
             mode, cn = siadm.getmodecn()
+            try:
+                modestr = si.MODES[mode]
+            except IndexError:
+                modestr = 'Undef'
+            if modestr == 'Undef':
+                modestr += " ({})".format(mode)
             print("Station number: {}".format(cn))
-            print("Station mode:   {}".format(si.MODES[mode]))
+            print("Station mode:   {}".format(modestr))
         elif cmd == 'rbat':
             bdate, bperc, bvolt, btemp = siadm.getbatall()
             print("""Battery state:

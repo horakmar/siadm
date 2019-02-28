@@ -70,7 +70,14 @@ O_MODE      = 0x71 # 1
 O_CODE      = 0x72 # 1
 O_PROT      = 0x74 # 1
 
-MODES = ('Undef', 'Undef', 'Control', 'Start', 'Finish', 'Readout', 'Undef', 'Clear', 'Undef', 'Undef', 'Check')
+MODES = ('Undef', 'SIAC_x', 'Control', 'Start', 'Finish', 'Readout', 'Undef', 'Clear', 'Undef', 'Undef', 'Check',
+         'Undef', 'Undef', 'Undef', 'Undef', 'Undef', 'Undef', 'SIAC_test', 'Undef', 'Undef', 'Undef')
+
+# in SIAC_x are modes: on, off, radio_readout, battery_test
+
+# MODES[50] = 'Beacon_control'
+# MODES[51] = 'Beacon_start'
+# MODES[52] = 'Beacon_finish'
 
 ##################################
 # Custom exceptions
