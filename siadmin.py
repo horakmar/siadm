@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!.venv/bin/python
 #
 ################################################
 # Package for sportident admin operations
